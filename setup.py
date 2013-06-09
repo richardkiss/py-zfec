@@ -98,8 +98,6 @@ else:
 setup_requires = []
 tests_require = []
 
-tests_require.append("pyutil >= 1.3.19")
-
 # darcsver is needed only if you want "./setup.py darcsver" to write a new
 # version stamp in pyutil/_version.py, with a version number derived from
 # darcs history.  http://pypi.python.org/pypi/darcsver
@@ -154,7 +152,7 @@ try:
 except UnicodeDecodeError:
     pass
 
-install_requires=["pyutil >= 1.3.19"]
+install_requires=[]
 
 # argparse comes built into Python >= 2.7, and is provided by the "argparse"
 # distribution for earlier versions of Python.

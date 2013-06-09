@@ -1,10 +1,22 @@
 import easyfec, zfec
-from pyutil import fileutil
-from pyutil.mathutil import pad_size, log_ceil
 
 import array, os, struct
 
 CHUNKSIZE = 4096
+
+def log_ceil(n, b):
+    """
+    The smallest integer k such that b^k >= n.
+
+    log_ceil(n, 2) is the number of bits needed to store any of n values, e.g.
+    the number of bits needed to store any of 128 possible values is 7.
+    """
+    p = 1
+    k = 0
+    while p < n:
+        p *= b
+        k += 1
+    return k
 
 from base64 import b32encode
 def ab(x): # debuggery
@@ -171,7 +183,7 @@ def encode_to_files(inf, fsize, dirname, prefix, k, m, suffix=".fec", overwrite=
     mlen = len(str(m))
     format = FORMAT_FORMAT % (mlen, mlen,)
 
-    padbytes = pad_size(fsize, k)
+    padbytes = (k-fsize%k)%k
 
     fns = []
     fs = []
@@ -219,7 +231,10 @@ def encode_to_files(inf, fsize, dirname, prefix, k, m, suffix=".fec", overwrite=
             fn = fns.pop()
             if verbose:
                 print "Cleaning up: trying to remove %r..." % (fn,)
-            fileutil.remove_if_possible(fn)
+            try:
+                os.remove(fn)
+            except EnvironmentError:
+                pass
         return 1
     if verbose:
         print

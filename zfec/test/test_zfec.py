@@ -3,13 +3,13 @@
 import cStringIO, os, random, re
 
 import unittest
+import shutil
+import tempfile
 
 global VERBOSE
 VERBOSE=False
 
 import zfec
-
-from pyutil import fileutil
 
 from base64 import b32encode
 def ab(x): # debuggery
@@ -255,35 +255,33 @@ class FileFec(unittest.TestCase):
 
         fsize = len(teststr)
 
-        tempdir = fileutil.NamedTemporaryDirectory(cleanup=True)
+        tempdir = tempfile.mkdtemp()
         try:
-            tempf = tempdir.file(TESTFNAME, 'w+b')
+            tempf = file(os.path.join(tempdir, TESTFNAME), 'w+b')
             tempf.write(teststr)
             tempf.flush()
             tempf.seek(0)
 
             # encode the file
-            zfec.filefec.encode_to_files(tempf, fsize, tempdir.name, PREFIX, k, m, SUFFIX, verbose=VERBOSE)
+            zfec.filefec.encode_to_files(tempf, fsize, tempdir, PREFIX, k, m, SUFFIX, verbose=VERBOSE)
 
             # select some share files
             RE=re.compile(zfec.filefec.RE_FORMAT % (PREFIX, SUFFIX,))
-            fns = os.listdir(tempdir.name)
-            assert len(fns) >= m, (fns, tempdir, tempdir.name,)
-            sharefs = [ open(os.path.join(tempdir.name, fn), "rb") for fn in fns if RE.match(fn) ]
-            for sharef in sharefs:
-                tempdir.register_file(sharef)
+            fns = os.listdir(tempdir)
+            assert len(fns) >= m, (fns, tempdir, tempdir,)
+            sharefs = [ open(os.path.join(tempdir, fn), "rb") for fn in fns if RE.match(fn) ]
             random.shuffle(sharefs)
             del sharefs[numshs:]
 
             # decode from the share files
-            outf = tempdir.file('recovered-testfile.txt', 'w+b')
+            outf = file(os.path.join(tempdir, 'recovered-testfile.txt'), 'w+b')
             zfec.filefec.decode_from_files(outf, sharefs, verbose=VERBOSE)
             outf.flush()
             outf.seek(0)
             recovereddata = outf.read()
             assert recovereddata == teststr, (ab(recovereddata), ab(teststr),)
         finally:
-            tempdir.shutdown()
+            shutil.rmtree(tempdir)
 
     def test_filefec_all_shares(self):
         return self._help_test_filefec("Yellow Whirled!", 3, 8)
@@ -324,8 +322,8 @@ class FileFec(unittest.TestCase):
 
 class Cmdline(unittest.TestCase):
     def test_basic(self, noisy=VERBOSE):
-        tempdir = fileutil.NamedTemporaryDirectory(cleanup=True)
-        fo = tempdir.file("test.data", "w+b")
+        tempdir = tempfile.mkdtemp()
+        fo = file(os.path.join(tempdir, "test.data"), "w+b")
         fo.write("WHEHWHJEKWAHDLJAWDHWALKDHA")
 
         import sys
@@ -333,28 +331,29 @@ class Cmdline(unittest.TestCase):
         try:
             DEFAULT_M=8
             DEFAULT_K=3
-            sys.argv = ["zfec", os.path.join(tempdir.name, "test.data"),]
+            sys.argv = ["zfec", os.path.join(tempdir, "test.data"),]
 
             retcode = zfec.cmdline_zfec.main()
             assert retcode == 0, retcode
 
             RE=re.compile(zfec.filefec.RE_FORMAT % ('test.data', ".fec",))
-            fns = os.listdir(tempdir.name)
-            assert len(fns) >= DEFAULT_M, (fns, DEFAULT_M, tempdir, tempdir.name,)
-            sharefns = [ os.path.join(tempdir.name, fn) for fn in fns if RE.match(fn) ]
+            fns = os.listdir(tempdir)
+            assert len(fns) >= DEFAULT_M, (fns, DEFAULT_M, tempdir,)
+            sharefns = [ os.path.join(tempdir, fn) for fn in fns if RE.match(fn) ]
             random.shuffle(sharefns)
             del sharefns[DEFAULT_K:]
 
             sys.argv = ["zunfec",]
             sys.argv.extend(sharefns)
-            sys.argv.extend(['-o', os.path.join(tempdir.name, 'test.data-recovered'),])
+            sys.argv.extend(['-o', os.path.join(tempdir, 'test.data-recovered'),])
 
             retcode = zfec.cmdline_zunfec.main()
             assert retcode == 0, retcode
             import filecmp
-            assert filecmp.cmp(os.path.join(tempdir.name, 'test.data'), os.path.join(tempdir.name, 'test.data-recovered'))
+            assert filecmp.cmp(os.path.join(tempdir, 'test.data'), os.path.join(tempdir, 'test.data-recovered'))
         finally:
             sys.argv = realargv
+            shutil.rmtree(tempdir)
 
 if __name__ == "__main__":
     unittest.main()

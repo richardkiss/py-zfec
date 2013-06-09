@@ -1,9 +1,8 @@
 from zfec import easyfec, Encoder, filefec
-from pyutil import mathutil
 
 import os, sys
 
-from pyutil import benchutil
+import benchutil
 
 FNAME="benchrandom.data"
 
@@ -27,7 +26,7 @@ def _make_new_rand_data(size, k, m):
     d = os.urandom(size)
     del ds[:]
     ds.extend([None]*k)
-    blocksize = mathutil.div_ceil(size, k)
+    blocksize = (size+k-1)//k
     for i in range(k):
         ds[i] = d[i*blocksize:(i+1)*blocksize]
     ds[-1] = ds[-1] + "\x00" * (len(ds[-2]) - len(ds[-1]))
